@@ -1,0 +1,13 @@
+digraph {
+	env_0 [label="Env0\n+: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x7370555d1440>\n-: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d1c0>\n*: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d260>\n/: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d300>\nmake-counter: Closure#0\nmy-counter: Closure#1\n" fillcolor=lightyellow shape=box style=filled]
+	env_1 [label="Env1\n" fillcolor=lightyellow shape=box style=filled]
+	env_0 -> env_1
+	env_2 [label="Env2\nn: 0\n" fillcolor=lightyellow shape=box style=filled]
+	env_1 -> env_2
+	closure_0 [label="Closure#0\nparams: []\nbody: let [[Symbol('n'), 0]] [Symbol('lambda'), [], [Symbol('set!'), Symbol('n'), [Symbol('+'), Symbol('n'), 1]], Symbol('n')]\ndef-env: Env0" fillcolor=lightblue shape=box style="rounded, filled"]
+	closure_0 -> env_0 [label="parent-env"]
+	closure_1 [label="Closure#1\nparams: []\nbody: begin [Symbol('set!'), Symbol('n'), [Symbol('+'), Symbol('n'), 1]] n\ndef-env: Env2" fillcolor=lightblue shape=box style="rounded, filled"]
+	closure_1 -> env_2 [label="parent-env"]
+	env_0 -> closure_0 [label="make-counter"]
+	env_0 -> closure_1 [label="my-counter"]
+}
