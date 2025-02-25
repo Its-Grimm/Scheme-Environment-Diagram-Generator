@@ -1,13 +1,31 @@
 digraph {
-	env_0 [label="Env0\n+: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x7370555d1440>\n-: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d1c0>\n*: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d260>\n/: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d300>\nmake-counter: Closure#0\nmy-counter: Closure#1\n" fillcolor=lightyellow shape=box style=filled]
-	env_1 [label="Env1\n" fillcolor=lightyellow shape=box style=filled]
-	env_0 -> env_1
-	env_2 [label="Env2\nn: 0\n" fillcolor=lightyellow shape=box style=filled]
-	env_1 -> env_2
-	closure_0 [label="Closure#0\nparams: []\nbody: let [[Symbol('n'), 0]] [Symbol('lambda'), [], [Symbol('set!'), Symbol('n'), [Symbol('+'), Symbol('n'), 1]], Symbol('n')]\ndef-env: Env0" fillcolor=lightblue shape=box style="rounded, filled"]
-	closure_0 -> env_0 [label="parent-env"]
-	closure_1 [label="Closure#1\nparams: []\nbody: begin [Symbol('set!'), Symbol('n'), [Symbol('+'), Symbol('n'), 1]] n\ndef-env: Env2" fillcolor=lightblue shape=box style="rounded, filled"]
-	closure_1 -> env_2 [label="parent-env"]
-	env_0 -> closure_0 [label="make-counter"]
-	env_0 -> closure_1 [label="my-counter"]
+	env_0 [label="Global Environment\n[other bindings]\nmake-counter\nmy-counter\n" fillcolor="#FFFFCC" shape=box style=filled]
+	env_1 [label="E1\n" fillcolor="#FFFFCC" shape=box style=filled]
+	env_0 -> env_1 [color=black]
+	env_2 [label="E2\nn -> 0\n" fillcolor="#FFFFCC" shape=box style=filled]
+	env_1 -> env_2 [color=black]
+	subgraph cluster_closure_0 {
+		color=none rankdir=LR
+		closure_0_left [label="" color=red fillcolor=red fixedsize=true height=0.3 shape=circle style=filled width=0.3]
+		closure_0_right [label="" color=red fillcolor=red fixedsize=true height=0.3 shape=circle style=filled width=0.3]
+		closure_0_left -> closure_0_right [style=invis]
+		closure_0_args [label="args: ()" shape=none]
+		closure_0_body [label="body: (let ((n 0)) (lambda () (set! n (+ n 1)) n))" shape=none]
+		closure_0_left -> closure_0_args [arrowhead=normal color=red]
+		closure_0_left -> closure_0_body [arrowhead=normal color=red]
+	}
+	closure_0_right -> env_0 [color=red]
+	subgraph cluster_closure_1 {
+		color=none rankdir=LR
+		closure_1_left [label="" color=red fillcolor=red fixedsize=true height=0.3 shape=circle style=filled width=0.3]
+		closure_1_right [label="" color=red fillcolor=red fixedsize=true height=0.3 shape=circle style=filled width=0.3]
+		closure_1_left -> closure_1_right [style=invis]
+		closure_1_args [label="args: ()" shape=none]
+		closure_1_body [label="body: (begin (set! n (+ n 1)) n)" shape=none]
+		closure_1_left -> closure_1_args [arrowhead=normal color=red]
+		closure_1_left -> closure_1_body [arrowhead=normal color=red]
+	}
+	closure_1_right -> env_2 [color=red]
+	env_0 -> closure_0_left [label="make-counter" color=red]
+	env_0 -> closure_1_left [label="my-counter" color=red]
 }
