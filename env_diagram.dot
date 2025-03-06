@@ -1,5 +1,5 @@
 digraph {
-	env_0 [label="Env0\n+: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x7370555d1440>\n-: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d1c0>\n*: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d260>\n/: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x73705502d300>\nmake-counter: Closure#0\nmy-counter: Closure#1\n" fillcolor=lightyellow shape=box style=filled]
+	env_0 [label="Env0\n+: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x7aaffc2e1440>\n-: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x7aaffb6eaac0>\n*: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x7aaffb6eab60>\n/: <function SchemeInterpreter._initialize_builtins.<locals>.<lambda> at 0x7aaffb6eac00>\nmake-counter: Closure#0\nmy-counter: Closure#1\n" fillcolor=lightyellow shape=box style=filled]
 	env_1 [label="Env1\n" fillcolor=lightyellow shape=box style=filled]
 	env_0 -> env_1
 	env_2 [label="Env2\nn: 0\n" fillcolor=lightyellow shape=box style=filled]
