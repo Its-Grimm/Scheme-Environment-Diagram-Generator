@@ -5,26 +5,26 @@ import graphviz
 closure_counter = 0
 
 class Closure:
-    """Stores param list, body, and defining environment for a Scheme closure."""
-    def __init__(self, params, body, env_id):
+    """Represents a Scheme closure with parameters, body, and the environment ID where it was defined."""
+    def __init__(self, params, body, def_env_id):
         global closure_counter
         self.id = closure_counter
         closure_counter += 1
 
         self.params = params
         self.body = body
-        self.env_id = env_id  # The environment in which this closure was defined
+        self.def_env_id = def_env_id
 
     def __repr__(self):
-        # For debug: returns something like <Closure#0 params=(x) env=Env1>
-        return f"<Closure#{self.id} params={self.params} env=Env{self.env_id}>"
+        return f"<Closure#{self.id} params={self.params} def_env=E{self.def_env_id}>"
 
 class Environment:
-    """Represents a single environment frame."""
-    def __init__(self, env_id, parent=None):
+    """Represents an environment frame."""
+    def __init__(self, env_id, parent=None, is_global=False):
         self.env_id = env_id
-        self.parent = parent  # Parent is an Environment or None
-        self.bindings = {}    # var -> (value)
+        self.parent = parent
+        self.is_global = is_global
+        self.bindings = {}  # var -> value (int, float, or Closure)
 
     def define(self, var, value):
         self.bindings[var] = value
@@ -46,87 +46,76 @@ class Environment:
             raise NameError(f"Unbound variable: {var}")
 
 class SchemeInterpreter:
+    """Generates an environment diagram in a style similar to CS61AS, with two red circles for each procedure."""
     def __init__(self):
-        self.envs = []       # List of Environment objects
-        self.closures = []   # List of Closure objects
+        self.envs = []
+        self.closures = []
         self.graph = graphviz.Digraph(format='dot')
 
-        # Create the global environment (env_id=0)
-        global_env = Environment(env_id=0, parent=None)
+        # Create global environment (ID=0)
+        global_env = Environment(env_id=0, parent=None, is_global=True)
         self.envs.append(global_env)
         self.global_env = global_env
 
-        # Built-ins
         self._initialize_builtins()
 
     def _initialize_builtins(self):
+        # Built-ins won't be displayed individually, but we mention "[other bindings]" in Global
         self.global_env.define('+', lambda x, y: x + y)
         self.global_env.define('-', lambda x, y: x - y)
         self.global_env.define('*', lambda x, y: x * y)
         self.global_env.define('/', lambda x, y: x / y)
 
+    def new_env(self, parent_env):
+        env_id = len(self.envs)
+        e = Environment(env_id=env_id, parent=parent_env, is_global=False)
+        self.envs.append(e)
+        return e
+
+    def new_closure(self, params, body, def_env_id):
+        c = Closure(params, body, def_env_id)
+        self.closures.append(c)
+        return c
+
     def run(self, scheme_code):
-        # Parse entire code as a list of top-level expressions
+        # Parse top-level expressions
         exprs = sexpdata.loads(f'({scheme_code})')
         for expr in exprs:
             self.eval_expr(expr, self.global_env)
         self.visualize()
 
-    def new_env(self, parent_env):
-        """Creates a new Environment with a unique ID and the given parent."""
-        env_id = len(self.envs)
-        e = Environment(env_id=env_id, parent=parent_env)
-        self.envs.append(e)
-        return e
-
-    def new_closure(self, params, body, env_id):
-        """Creates a new Closure object and stores it in self.closures."""
-        c = Closure(params, body, env_id)
-        self.closures.append(c)
-        return c
-
     def eval_expr(self, expr, env):
-        """Evaluates an expression under a given environment."""
-        # 1) Number
+        # 1) Numbers
         if isinstance(expr, (int, float)):
             return expr
-
         # 2) Symbol
         if isinstance(expr, sexpdata.Symbol):
             return env.lookup(expr.value())
-
-        # 3) List (S-expression)
-        if isinstance(expr, list):
-            if not expr:
-                return None
-
+        # 3) S-expression
+        if isinstance(expr, list) and expr:
             op = expr[0]
             args = expr[1:]
 
             # (define var expr)
             if op == sexpdata.Symbol('define'):
-                var_symbol, val_expr = args
+                var_sym, val_expr = args
                 val = self.eval_expr(val_expr, env)
-                env.define(var_symbol.value(), val)
+                env.define(var_sym.value(), val)
                 return val
 
             # (lambda (params) body...)
             elif op == sexpdata.Symbol('lambda'):
-                params = args[0]       # list of parameter symbols
-                body_exprs = args[1:]  # one or more body expressions
-
-                # If multiple body expressions, wrap them in (begin ...)
+                params = args[0]
+                body_exprs = args[1:]
                 if len(body_exprs) == 1:
                     body = body_exprs[0]
                 else:
                     body = [sexpdata.Symbol('begin')] + body_exprs
-
-                closure_obj = self.new_closure(
+                return self.new_closure(
                     params=[p.value() for p in params],
                     body=body,
-                    env_id=env.env_id  # ID of environment where closure is created
+                    def_env_id=env.env_id
                 )
-                return closure_obj
 
             # (begin expr1 expr2 ...)
             elif op == sexpdata.Symbol('begin'):
@@ -135,20 +124,15 @@ class SchemeInterpreter:
                     result = self.eval_expr(subexpr, env)
                 return result
 
-            # (let ((var val) ...) body...)
+            # (let ((v e) ...) body...)
             elif op == sexpdata.Symbol('let'):
                 binding_list = args[0]
                 body_exprs = args[1:]
-
-                # Create a new environment
                 let_env = self.new_env(env)
-                # Define each var in let_env
                 for binding in binding_list:
                     var_sym, val_expr = binding
                     val = self.eval_expr(val_expr, env)
                     let_env.define(var_sym.value(), val)
-
-                # Evaluate body in let_env
                 result = None
                 for subexpr in body_exprs:
                     result = self.eval_expr(subexpr, let_env)
@@ -163,94 +147,154 @@ class SchemeInterpreter:
 
             # Function call
             else:
-                # Evaluate the operator
                 proc = self.eval_expr(op, env)
-
-                # If it's a built-in function (callable)
                 if callable(proc):
+                    # Built-in
                     evaluated_args = [self.eval_expr(a, env) for a in args]
                     return proc(*evaluated_args)
-
-                # Otherwise, it's a closure
-                if isinstance(proc, Closure):
-                    # Create a new environment for the function call
-                    call_env = self.new_env(self.envs[proc.env_id])
-                    # Bind parameters
+                elif isinstance(proc, Closure):
+                    call_env = self.new_env(self.envs[proc.def_env_id])
                     for param, arg_expr in zip(proc.params, args):
                         val = self.eval_expr(arg_expr, env)
                         call_env.define(param, val)
-
-                    # Evaluate closure body in call_env
                     return self.eval_expr(proc.body, call_env)
+                else:
+                    raise TypeError(f"Attempted to call non-callable: {proc}")
 
-                raise TypeError(f"Attempted to call non-callable: {proc}")
-
-        # If none of the above matched, return None
         return None
 
     def visualize(self):
-        """Generate a DOT file with separate nodes for frames and closures."""
-        # 1) Create nodes for each environment frame
+        """Create a DOT file with environment frames and side-by-side red circles for closures."""
+        # 1) Draw environment frames
         for env in self.envs:
-            label = f"Env{env.env_id}\\n"
+            if env.is_global:
+                # Global environment label
+                label = "Global Environment\\n[other bindings]\\n"
+            else:
+                # Non-global: E1, E2, etc.
+                label = f"E{env.env_id}\\n"
+
+            # Show user-defined variables
             for var, val in env.bindings.items():
-                if isinstance(val, Closure):
-                    label += f"{var}: Closure#{val.id}\\n"
+                # Skip built-ins in global
+                if env.is_global and callable(val) and val.__name__ == '<lambda>':
+                    continue
+                if isinstance(val, (int, float)):
+                    label += f"{var} -> {val}\\n"
+                elif isinstance(val, Closure):
+                    # We'll draw an arrow from env to the closure's left circle
+                    label += f"{var}\\n"
                 else:
-                    label += f"{var}: {val}\\n"
+                    label += f"{var} -> {val}\\n"
+
             self.graph.node(
                 f"env_{env.env_id}",
                 label=label,
                 shape="box",
                 style="filled",
-                fillcolor="lightyellow"
+                fillcolor="#FFFFCC"
             )
 
-            # Draw edge from env to its parent
-            if env.parent:
-                self.graph.edge(f"env_{env.parent.env_id}", f"env_{env.env_id}")
+            # Parent link (solid line)
+            if env.parent is not None:
+                self.graph.edge(
+                    f"env_{env.parent.env_id}",
+                    f"env_{env.env_id}",
+                    color="black"
+                )
 
-        # 2) Create nodes for closures
-        for c in self.closures:
-            label = (
-                f"Closure#{c.id}\\n"
-                f"params: {c.params}\\n"
-                f"body: {self._format_body(c.body)}\\n"
-                f"def-env: Env{c.env_id}"
-            )
-            self.graph.node(
-                f"closure_{c.id}",
-                label=label,
-                shape="box",
-                style="rounded, filled",
-                fillcolor="lightblue"
-            )
-            # Arrow from closure -> environment where it was defined
-            self.graph.edge(f"closure_{c.id}", f"env_{c.env_id}", label="parent-env")
+        # 2) Draw closures: two red circles side-by-side
+        for clos in self.closures:
+            # We'll put them in a subgraph with rankdir=LR so they're side by side
+            sub = graphviz.Digraph(name=f"cluster_closure_{clos.id}")
+            sub.attr(rankdir='LR', color='none')
 
-        # 3) Draw edges from environment frames to closures for variables referencing them
+            left_id = f"closure_{clos.id}_left"
+            right_id = f"closure_{clos.id}_right"
+
+            # Two small red circles, side by side
+            sub.node(
+                left_id,
+                label="",
+                shape="circle",
+                style="filled",
+                fillcolor="red",
+                color="red",
+                fixedsize="true",
+                width="0.3",
+                height="0.3"
+            )
+            sub.node(
+                right_id,
+                label="",
+                shape="circle",
+                style="filled",
+                fillcolor="red",
+                color="red",
+                fixedsize="true",
+                width="0.3",
+                height="0.3"
+            )
+
+            # Connect them with an invisible edge so they “touch”
+            sub.edge(left_id, right_id, style="invis")
+
+            # Now create shape=none nodes for args and body, each attached to the left circle
+            args_node = f"closure_{clos.id}_args"
+            body_node = f"closure_{clos.id}_body"
+
+            # For labeling
+            args_label = f"args: ({' '.join(clos.params)})"
+            body_label = f"body: {self._format_expr(clos.body)}"
+
+            sub.node(args_node, label=args_label, shape="none")
+            sub.node(body_node, label=body_label, shape="none")
+
+            # Red arrow from left circle to args
+            sub.edge(left_id, args_node, color="red", arrowhead="normal")
+            # Red arrow from left circle to body
+            sub.edge(left_id, body_node, color="red", arrowhead="normal")
+
+            # Add subgraph to main
+            self.graph.subgraph(sub)
+
+            # Solid red line from right circle to environment
+            self.graph.edge(
+                right_id,
+                f"env_{clos.def_env_id}",
+                color="red"
+            )
+
+        # 3) For each closure binding, a red arrow from environment to left circle
         for env in self.envs:
             for var, val in env.bindings.items():
                 if isinstance(val, Closure):
-                    self.graph.edge(f"env_{env.env_id}", f"closure_{val.id}", label=var)
+                    left_circle = f"closure_{val.id}_left"
+                    self.graph.edge(
+                        f"env_{env.env_id}",
+                        left_circle,
+                        label=var,
+                        color="red"
+                    )
 
-        # Save final dot
+        # Output DOT
         with open("env_diagram.dot", "w") as f:
             f.write(self.graph.source)
         print("Environment diagram saved as env_diagram.dot.")
         print("Use 'dot -Tpng env_diagram.dot -o env_diagram.png' to render it.")
 
-    def _format_body(self, body):
-        """Small helper to make the closure body more readable in the label."""
-        if isinstance(body, list):
-            # Convert S-expressions to string
-            return " ".join(str(x) for x in body)
-        return str(body)
+    def _format_expr(self, expr):
+        """Convert an S-expression to a string."""
+        if isinstance(expr, list):
+            return "(" + " ".join(self._format_expr(e) for e in expr) + ")"
+        elif isinstance(expr, sexpdata.Symbol):
+            return expr.value()
+        return str(expr)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        with open(sys.argv[1], "r") as f:
-            code = f.read()
+        with open(sys.argv[1], "r") as file:
+            code = file.read()
     else:
         print("Enter your Scheme code (end with Ctrl-D):")
         code = sys.stdin.read()
